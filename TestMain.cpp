@@ -40,6 +40,15 @@ int main(int argc, char **argv) {
 
     glClearColor(1.0, 0.0, 1.0, 1.0);
 
+    glewExperimental = true;
+    GLenum err = glewInit();
+    if(err != GLEW_OK) {
+        cout << "GLEW ERROR: ";
+        cout << glewGetErrorString(err) << endl;
+        glfwTerminate();
+        exit(1);
+    }
+
     // DRAWING / MAIN RENDER LOOP
     while(!glfwWindowShouldClose(window)) {
         
