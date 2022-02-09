@@ -55,6 +55,47 @@ static void error_callback(int e, const char* d) {
 int main(int argc, char **argv) {
     cout << "BEGIN GRAPHICS!!!!" << endl;
 
+    glm::vec3 a(1,4,0);
+    glm::vec3 b(2,3,2);
+
+    cout << "A.x = " << a.x << endl;
+    cout << "A = " << glm::to_string(a) << endl;
+    cout << "B = " << glm::to_string(b) << endl;
+
+    glm::vec3 c = b - a;
+    cout << "C = " << glm::to_string(c) << endl;
+    a = 5.0f*a;
+    cout << "A * 5 = " << glm::to_string(a) << endl;
+
+    float lenA = glm::length(a);
+    glm::vec3 normA = glm::normalize(a);
+    float lenNormA = glm::length(normA);
+    cout << "Normalized A = " << glm::to_string(normA) << endl;
+    cout << "Lengths: " << lenA << ", " << lenNormA << endl;
+
+    glm::vec3 normB = glm::normalize(b);
+    cout << "Normalized B = " << glm::to_string(normB) << endl;
+    float dotAB = glm::dot(normA, normB);
+    float radAB = acos(dotAB);
+    float degAB = glm::degrees(radAB);
+    cout << "Dot(A,B) = " << dotAB << endl;
+    cout << "Angle(A,B) = " << degAB << endl;
+
+    glm::vec3 normD = glm::vec3(0,0,1);
+    cout << "Normalized D = " << glm::to_string(normD) << endl;
+    float dotAD = glm::dot(normA, normD);
+    float degAD = glm::degrees(acos(dotAD));
+    cout << "Dot(A,D) = " << dotAD << endl;
+    cout << "Angle(A,D) = " << degAD << endl;
+
+    glm::vec3 e = glm::vec3(7,8,0);
+    glm::vec3 crossAE = glm::cross(a, e);
+    glm::vec3 crossEA = glm::cross(e, a);
+    cout << "Cross(A,E) = " << glm::to_string(crossAE) << endl;
+    cout << "Cross(E,A) = " << glm::to_string(crossEA) << endl;
+
+
+
     glfwSetErrorCallback(error_callback);
 
     if(!glfwInit()) {
