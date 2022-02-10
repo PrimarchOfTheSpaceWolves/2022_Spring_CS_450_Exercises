@@ -55,6 +55,11 @@ static void error_callback(int e, const char* d) {
 int main(int argc, char **argv) {
     cout << "BEGIN GRAPHICS!!!!" << endl;
 
+    if(argc > 1) {
+        string filename = argv[1];
+        cout << filename << endl;
+    }
+
     glm::vec3 a(1,4,0);
     glm::vec3 b(2,3,2);
 
