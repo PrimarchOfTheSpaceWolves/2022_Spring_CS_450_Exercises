@@ -31,6 +31,7 @@ vector<GLfloat> vertOnly = {
 vector<GLuint> elements = { 0, 1, 2, 1, 3, 2 };
 
 glm::mat4 modelMat(1.0);
+string transformString = "v";
 
 string vertCode = R"(
 #version 430 core
@@ -74,13 +75,31 @@ static void key_callback(GLFWwindow *window,
                         int scancode,
                         int action,
                         int mods) {
-    if(action == GLFW_PRESS) {
+    if(action == GLFW_PRESS || action == GLFW_REPEAT) {
         if(key == GLFW_KEY_ESCAPE) {
             glfwSetWindowShouldClose(window, true);
         }
+        else if(key == GLFW_KEY_SPACE) {
+            modelMat = glm::mat4(1.0);
+            transformString = "v";
+        }
         else if(key == GLFW_KEY_D) {
             modelMat = glm::translate(glm::vec3(0.1, 0, 0))*modelMat;
+            transformString = "T(0.1,0,0)*" + transformString;
         }
+        else if(key == GLFW_KEY_Q) {
+            glm::mat4 R = glm::rotate(glm::radians(5.0f),glm::vec3(0,0,1));
+            modelMat = R*modelMat;
+            transformString = "R(5)*" + transformString;
+        }
+        else if(key == GLFW_KEY_E) {
+            glm::mat4 R = glm::rotate(glm::radians(-5.0f),glm::vec3(0,0,1));
+            modelMat = R*modelMat;
+            transformString = "R(-5)*" + transformString;
+        }
+
+        printRM("Model:", modelMat);
+        cout << transformString << endl;
     }
 }
 
