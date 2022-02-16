@@ -83,6 +83,10 @@ static void key_callback(GLFWwindow *window,
             modelMat = glm::mat4(1.0);
             transformString = "v";
         }
+        else if(key == GLFW_KEY_A) {
+            modelMat = glm::translate(glm::vec3(-0.1, 0, 0))*modelMat;
+            transformString = "T(-0.1,0,0)*" + transformString;
+        }
         else if(key == GLFW_KEY_D) {
             modelMat = glm::translate(glm::vec3(0.1, 0, 0))*modelMat;
             transformString = "T(0.1,0,0)*" + transformString;
@@ -96,6 +100,16 @@ static void key_callback(GLFWwindow *window,
             glm::mat4 R = glm::rotate(glm::radians(-5.0f),glm::vec3(0,0,1));
             modelMat = R*modelMat;
             transformString = "R(-5)*" + transformString;
+        }
+        else if(key == GLFW_KEY_F) {
+            glm::mat4 S = glm::scale(glm::vec3(0.8,1.0,1.0));
+            modelMat = S*modelMat;
+            transformString = "S(0.8x)*" + transformString;
+        }
+        else if(key == GLFW_KEY_G) {
+            glm::mat4 S = glm::scale(glm::vec3(1.25,1.0,1.0));
+            modelMat = S*modelMat;
+            transformString = "S(1.25x)*" + transformString;
         }
 
         printRM("Model:", modelMat);
