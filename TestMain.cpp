@@ -32,6 +32,8 @@ vector<GLuint> elements = { 0, 1, 2, 1, 3, 2 };
 
 glm::mat4 modelMat(1.0);
 glm::mat4 viewMat(1.0);
+glm::vec4 eye(0,0,1,1);
+glm::vec4 center(0,0,0,1);
 string transformString = "v";
 
 string vertCode = R"(
@@ -229,7 +231,8 @@ int main(int argc, char **argv) {
     glDeleteShader(fragID);
 
     GLint modelMatLoc = glGetUniformLocation(progID, "modelMat");
-    cout << modelMatLoc << endl;
+    GLint viewMatLoc = glGetUniformLocation(progID, "viewMat");
+    cout << modelMatLoc << " " << viewMatLoc << endl;
 
     GLuint VBO = 0;
     glGenBuffers(1, &VBO);
@@ -268,6 +271,9 @@ int main(int argc, char **argv) {
         glUseProgram(progID);
 
         glUniformMatrix4fv(modelMatLoc, 1, false, glm::value_ptr(modelMat));
+
+        viewMat = glm::lookAt(glm::vec3(eye), glm::vec3(center), glm::vec3(0,1,0));
+        glUniformMatrix4fv(viewMatLoc, 1, false, glm::value_ptr(viewMat));
 
         // Draw stuff
         glBindVertexArray(VAO);
