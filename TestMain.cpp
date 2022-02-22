@@ -31,6 +31,7 @@ vector<GLfloat> vertOnly = {
 vector<GLuint> elements = { 0, 1, 2, 1, 3, 2 };
 
 glm::mat4 modelMat(1.0);
+glm::mat4 viewMat(1.0);
 string transformString = "v";
 
 string vertCode = R"(
@@ -39,10 +40,12 @@ string vertCode = R"(
 layout(location=0) in vec3 position;
 
 uniform mat4 modelMat;
+uniform mat4 viewMat;
 
 void main() {
     vec4 pos = vec4(position, 1.0);
-    gl_Position = modelMat * pos;
+    vec4 vpos = viewMat * modelMat * pos;
+    gl_Position = vpos;
 }
 )";
 
