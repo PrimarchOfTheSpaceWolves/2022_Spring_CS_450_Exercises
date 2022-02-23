@@ -32,9 +32,12 @@ vector<GLuint> elements = { 0, 1, 2, 1, 3, 2 };
 
 glm::mat4 modelMat(1.0);
 glm::mat4 viewMat(1.0);
+glm::mat4 projMat(1.0);
 glm::vec4 eye(0,0,1,1);
 glm::vec4 center(0,0,0,1);
 string transformString = "v";
+bool leftMouseDown = false;
+glm::vec2 lastMousePos(0,0);
 
 string vertCode = R"(
 #version 430 core
@@ -43,11 +46,12 @@ layout(location=0) in vec3 position;
 
 uniform mat4 modelMat;
 uniform mat4 viewMat;
+uniform mat4 projMat;
 
 void main() {
     vec4 pos = vec4(position, 1.0);
     vec4 vpos = viewMat * modelMat * pos;
-    gl_Position = vpos;
+    gl_Position = projMat * vpos;
 }
 )";
 
@@ -116,10 +120,57 @@ static void key_callback(GLFWwindow *window,
             modelMat = S*modelMat;
             transformString = "S(1.25x)*" + transformString;
         }
+        else if(key == GLFW_KEY_Z) {
+            glm::mat4 R = glm::rotate(glm::radians(5.0f),glm::vec3(0,1,0));
+            modelMat = R*modelMat;
+            transformString = "Ry(5)*" + transformString;
+        }
+        else if(key == GLFW_KEY_C) {
+            glm::mat4 R = glm::rotate(glm::radians(-5.0f),glm::vec3(0,1,0));
+            modelMat = R*modelMat;
+            transformString = "Ry(-5)*" + transformString;
+        }
 
         printRM("Model:", modelMat);
         cout << transformString << endl;
     }
+}
+
+static void mouse_button_callback(  GLFWwindow *window, 
+                                    int button, 
+                                    int action, 
+                                    int mods) {
+
+    if(button == GLFW_MOUSE_BUTTON_LEFT) {
+        if(action == GLFW_PRESS) {
+            leftMouseDown = true;
+            cout << "LEFT MOUSE DOWN" << endl;
+        }
+        else if(action == GLFW_RELEASE) {
+            leftMouseDown = false;
+            cout << "LEFT MOUSE UP" << endl;
+        }
+    }
+}
+
+static void mouse_cursor_callback(GLFWwindow *window,
+                                    double xpos,
+                                    double ypos) {
+    if(leftMouseDown) {
+        cout << "MOUSE: " << xpos << "," << ypos << endl;
+    }
+
+    glm::vec2 curMousePos = glm::vec2(xpos, ypos);
+    curMousePos -= lastMousePos;
+    int fw, fh;
+    glfwGetFramebufferSize(window, &fw, &fh);
+    curMousePos.x /= fw;
+    curMousePos.y /= fh;
+
+    // DO SOMETHING
+
+
+    lastMousePos = glm::vec2(xpos, ypos);
 }
 
 int main(int argc, char **argv) {
@@ -197,6 +248,12 @@ int main(int argc, char **argv) {
     glfwSwapInterval(1);
     glfwSetKeyCallback(window, key_callback);
 
+    double mx, my;
+    glfwGetCursorPos(window, &mx, &my);
+    lastMousePos = glm::vec2(mx, my);
+    glfwSetMouseButtonCallback(window, mouse_button_callback);
+    glfwSetCursorPosCallback(window, mouse_cursor_callback);
+
     int frameWidth, frameHeight;
 
     glClearColor(1.0, 0.0, 1.0, 1.0);
@@ -232,7 +289,8 @@ int main(int argc, char **argv) {
 
     GLint modelMatLoc = glGetUniformLocation(progID, "modelMat");
     GLint viewMatLoc = glGetUniformLocation(progID, "viewMat");
-    cout << modelMatLoc << " " << viewMatLoc << endl;
+    GLint projMatLoc = glGetUniformLocation(progID, "projMat");
+    cout << modelMatLoc << " " << viewMatLoc << " " << projMatLoc << endl;
 
     GLuint VBO = 0;
     glGenBuffers(1, &VBO);
@@ -274,6 +332,13 @@ int main(int argc, char **argv) {
 
         viewMat = glm::lookAt(glm::vec3(eye), glm::vec3(center), glm::vec3(0,1,0));
         glUniformMatrix4fv(viewMatLoc, 1, false, glm::value_ptr(viewMat));
+
+        float fov = glm::radians(90.0f);
+        float aspectRatio = ((float)frameWidth)/((float)frameHeight);
+        float near = 0.01f;
+        float far = 1000.0f;
+        projMat = glm::perspective(fov, aspectRatio, near, far);
+        glUniformMatrix4fv(projMatLoc, 1, false, glm::value_ptr(projMat));
 
         // Draw stuff
         glBindVertexArray(VAO);
