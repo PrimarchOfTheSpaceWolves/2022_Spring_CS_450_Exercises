@@ -28,6 +28,18 @@ vector<GLfloat> vertOnly = {
     0.3f, 0.3f, 0.0f
 };
 
+struct Vertex {
+    glm::vec3 pos = glm::vec3(0,0,0);
+    glm::vec4 color = glm::vec4(1,1,1,1);
+    glm::vec3 normal = glm::vec3(0,0,0);
+
+    Vertex() {};
+    Vertex(glm::vec3 p) { pos = p; };
+    Vertex(glm::vec3 p, glm::vec4 c) { pos = p; color = c; };
+    Vertex(glm::vec3 p, glm::vec4 c, glm::vec3 n) { pos = p; color = c; normal = n; };
+};
+vector<Vertex> vertices;
+
 vector<GLuint> elements = { 0, 1, 2, 1, 3, 2 };
 
 glm::mat4 modelMat(1.0);
@@ -38,20 +50,25 @@ glm::vec4 center(0,0,0,1);
 string transformString = "v";
 bool leftMouseDown = false;
 glm::vec2 lastMousePos(0,0);
+float angleX = 0.0;
 
 string vertCode = R"(
 #version 430 core
 
 layout(location=0) in vec3 position;
+layout(location=1) in vec4 color;
 
 uniform mat4 modelMat;
 uniform mat4 viewMat;
 uniform mat4 projMat;
 
+out vec4 interColor;
+
 void main() {
     vec4 pos = vec4(position, 1.0);
     vec4 vpos = viewMat * modelMat * pos;
     gl_Position = projMat * vpos;
+    interColor = color;
 }
 )";
 
@@ -60,8 +77,10 @@ string fragCode = R"(
 
 layout(location=0) out vec4 out_color;
 
+in vec4 interColor;
+
 void main() {
-    out_color = vec4(0.0, 1.0, 1.0, 1.0);
+    out_color = interColor; // vec4(0.0, 1.0, 1.0, 1.0);
 }
 )";
 
@@ -164,11 +183,14 @@ static void mouse_cursor_callback(GLFWwindow *window,
     curMousePos -= lastMousePos;
     int fw, fh;
     glfwGetFramebufferSize(window, &fw, &fh);
-    curMousePos.x /= fw;
-    curMousePos.y /= fh;
-
-    // DO SOMETHING
-
+    if(fw > 0 && fh > 0) {
+        curMousePos.x /= fw;
+        curMousePos.y /= fh;
+        
+        // DO SOMETHING
+        float rotScale = 180.0;
+        angleX += rotScale*curMousePos.y;
+    }
 
     lastMousePos = glm::vec2(xpos, ypos);
 }
@@ -222,6 +244,11 @@ int main(int argc, char **argv) {
 
     glm::mat4 T = glm::translate(glm::vec3(+2, 0, 0));
 
+    vertices.push_back(Vertex(glm::vec3(-0.4f, -0.3f, 0.0f)));
+    vertices.push_back(Vertex(glm::vec3(0.3f, -0.3f, 0.0f),
+                                glm::vec4(0,1,0,1)));
+    vertices.push_back(Vertex(glm::vec3(-0.3f, 0.3f, 0.0f)));
+    vertices.push_back(Vertex(glm::vec3(0.3f, 0.3f, 0.0f)));
 
     glfwSetErrorCallback(error_callback);
 
@@ -295,8 +322,10 @@ int main(int argc, char **argv) {
     GLuint VBO = 0;
     glGenBuffers(1, &VBO);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, vertOnly.size()*sizeof(GLfloat),
-                    vertOnly.data(), GL_STATIC_DRAW);
+    //glBufferData(GL_ARRAY_BUFFER, vertOnly.size()*sizeof(GLfloat),
+    //                vertOnly.data(), GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(Vertex),
+                        vertices.data(), GL_STATIC_DRAW);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
    
 
@@ -305,8 +334,12 @@ int main(int argc, char **argv) {
     glBindVertexArray(VAO);
 
     glEnableVertexAttribArray(0);
+    glEnableVertexAttribArray(1);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glVertexAttribPointer(0, 3, GL_FLOAT, false, 3 * sizeof(float), 0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, false, sizeof(Vertex),
+                            (void*)offsetof(Vertex, pos));
+    glVertexAttribPointer(1, 4, GL_FLOAT, false, sizeof(Vertex),
+                            (void*)offsetof(Vertex, color));
 
     GLuint EBO = 0;
     glGenBuffers(1, &EBO);
@@ -328,13 +361,20 @@ int main(int argc, char **argv) {
 
         glUseProgram(progID);
 
-        glUniformMatrix4fv(modelMatLoc, 1, false, glm::value_ptr(modelMat));
+        //glUniformMatrix4fv(modelMatLoc, 1, false, glm::value_ptr(modelMat));
+        glm::mat4 Rx = glm::rotate(glm::radians(angleX), glm::vec3(1,0,0));
+        //cout << "ANGLE X: " << angleX << endl;
+        glm::mat4 modModelMat = modelMat * Rx; //  Rx * modelMat;
+        glUniformMatrix4fv(modelMatLoc, 1, false, glm::value_ptr(modModelMat));
 
         viewMat = glm::lookAt(glm::vec3(eye), glm::vec3(center), glm::vec3(0,1,0));
         glUniformMatrix4fv(viewMatLoc, 1, false, glm::value_ptr(viewMat));
 
         float fov = glm::radians(90.0f);
-        float aspectRatio = ((float)frameWidth)/((float)frameHeight);
+        float aspectRatio = 1.0;
+        if(frameHeight > 0) {
+            aspectRatio = ((float)frameWidth)/((float)frameHeight);
+        }
         float near = 0.01f;
         float far = 1000.0f;
         projMat = glm::perspective(fov, aspectRatio, near, far);
