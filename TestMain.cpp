@@ -38,6 +38,12 @@ struct Vertex {
     Vertex(glm::vec3 p, glm::vec4 c) { pos = p; color = c; };
     Vertex(glm::vec3 p, glm::vec4 c, glm::vec3 n) { pos = p; color = c; normal = n; };
 };
+
+struct PointLight {
+    glm::vec4 pos = glm::vec4(0,0,0,1);
+    glm::vec4 color = glm::vec4(1,1,1,1);
+};
+
 vector<Vertex> vertices;
 
 vector<GLuint> elements = { 0, 1, 2, 1, 3, 2 };
@@ -45,7 +51,7 @@ vector<GLuint> elements = { 0, 1, 2, 1, 3, 2 };
 glm::mat4 modelMat(1.0);
 glm::mat4 viewMat(1.0);
 glm::mat4 projMat(1.0);
-glm::vec4 eye(0,0,1,1);
+glm::vec4 eye(-1,1,1,1);
 glm::vec4 center(0,0,0,1);
 string transformString = "v";
 bool leftMouseDown = false;
@@ -63,10 +69,12 @@ uniform mat4 viewMat;
 uniform mat4 projMat;
 
 out vec4 interColor;
+out vec4 interPos;
 
 void main() {
     vec4 pos = vec4(position, 1.0);
     vec4 vpos = viewMat * modelMat * pos;
+    interPos = vpos;
     gl_Position = projMat * vpos;
     interColor = color;
 }
@@ -78,9 +86,20 @@ string fragCode = R"(
 layout(location=0) out vec4 out_color;
 
 in vec4 interColor;
+in vec4 interPos;
+
+struct PointLight {
+    vec4 pos;
+    vec4 color;
+};
+uniform PointLight light;
 
 void main() {
-    out_color = interColor; // vec4(0.0, 1.0, 1.0, 1.0);
+    //out_color = interColor; // vec4(0.0, 1.0, 1.0, 1.0);
+    vec3 L = vec3(light.pos - interPos);
+    float d = length(L);
+    float at = 1.0 / (d*d + 1.0);
+    out_color = vec4(at, at, at, 1.0);
 }
 )";
 
@@ -195,6 +214,50 @@ static void mouse_cursor_callback(GLFWwindow *window,
     lastMousePos = glm::vec2(xpos, ypos);
 }
 
+void makeCylinder(vector<Vertex> &v, vector<GLuint> &ind,
+                    float length, float radius, int faceCnt) {
+
+        float angleInc = glm::pi<float>()*2.0 / faceCnt;
+        v.clear();
+        ind.clear();
+        float halfLen = length/2.0;
+
+        for(int i = 0; i < faceCnt; i++) {
+            float angle = i*angleInc;
+            float y = radius*sin(angle);
+            float z = radius*cos(angle);
+            glm::vec3 left = glm::vec3(-halfLen, y, z);
+            glm::vec3 right = glm::vec3(+halfLen, y, z);
+
+            Vertex leftV, rightV;
+            leftV.pos = left;
+            leftV.color = glm::vec4(1,0,0,1);
+
+            rightV.pos = right;
+            rightV.color = glm::vec4(0,1,0,1);
+
+            v.push_back(leftV);
+            v.push_back(rightV);
+        }
+
+        int tf = 2*faceCnt;
+        for(int i = 0; i < faceCnt; i++) {
+            int k = i*2;
+            int i1 = (k)%tf;
+            int i2 = (k+1)%tf;
+            int i3 = (k+2)%tf;
+            int i4 = (k+3)%tf;
+            
+            ind.push_back(i1);
+            ind.push_back(i2);
+            ind.push_back(i3);
+
+            ind.push_back(i2);
+            ind.push_back(i4);
+            ind.push_back(i3);
+        }
+}
+
 int main(int argc, char **argv) {
     cout << "BEGIN GRAPHICS!!!!" << endl;
 
@@ -249,6 +312,10 @@ int main(int argc, char **argv) {
                                 glm::vec4(0,1,0,1)));
     vertices.push_back(Vertex(glm::vec3(-0.3f, 0.3f, 0.0f)));
     vertices.push_back(Vertex(glm::vec3(0.3f, 0.3f, 0.0f)));
+
+    vector<Vertex> cylinderVert;
+    vector<GLuint> cylinderInd;
+    makeCylinder(cylinderVert, cylinderInd, 1.0, 0.5, 10);
 
     glfwSetErrorCallback(error_callback);
 
@@ -324,8 +391,10 @@ int main(int argc, char **argv) {
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     //glBufferData(GL_ARRAY_BUFFER, vertOnly.size()*sizeof(GLfloat),
     //                vertOnly.data(), GL_STATIC_DRAW);
-    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(Vertex),
-                        vertices.data(), GL_STATIC_DRAW);
+    //glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(Vertex),
+    //                    vertices.data(), GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, cylinderVert.size() * sizeof(Vertex),
+                        cylinderVert.data(), GL_STATIC_DRAW);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
    
 
@@ -335,21 +404,32 @@ int main(int argc, char **argv) {
 
     glEnableVertexAttribArray(0);
     glEnableVertexAttribArray(1);
+    glEnableVertexAttribArray(2);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glVertexAttribPointer(0, 3, GL_FLOAT, false, sizeof(Vertex),
                             (void*)offsetof(Vertex, pos));
     glVertexAttribPointer(1, 4, GL_FLOAT, false, sizeof(Vertex),
                             (void*)offsetof(Vertex, color));
+    glVertexAttribPointer(2, 3, GL_FLOAT, false, sizeof(Vertex),
+                            (void*)offsetof(Vertex, normal));
 
     GLuint EBO = 0;
     glGenBuffers(1, &EBO);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, elements.size()*sizeof(GLuint),
-                         elements.data(), GL_STATIC_DRAW);  
+    //glBufferData(GL_ELEMENT_ARRAY_BUFFER, elements.size()*sizeof(GLuint),
+    //                     elements.data(), GL_STATIC_DRAW); 
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, cylinderInd.size()*sizeof(GLuint),
+                         cylinderInd.data(), GL_STATIC_DRAW);  
 
     glBindVertexArray(0);
 
+    glEnable(GL_DEPTH_TEST);
 
+    PointLight light;
+    light.pos = glm::vec4(0, 0.5, 0.5, 1);
+    GLint lightPosLoc = glGetUniformLocation(progID, "light.pos");
+    GLint lightColorLoc = glGetUniformLocation(progID, "light.color");
+    cout << lightPosLoc << " " << lightColorLoc << endl;
 
     // DRAWING / MAIN RENDER LOOP
     while(!glfwWindowShouldClose(window)) {
@@ -380,10 +460,15 @@ int main(int argc, char **argv) {
         projMat = glm::perspective(fov, aspectRatio, near, far);
         glUniformMatrix4fv(projMatLoc, 1, false, glm::value_ptr(projMat));
 
+        glm::vec4 curLightPos = viewMat * light.pos;
+        glUniform4fv(lightPosLoc, 1, glm::value_ptr(curLightPos));
+        glUniform4fv(lightColorLoc, 1, glm::value_ptr(light.color));
+
         // Draw stuff
         glBindVertexArray(VAO);
         //glDrawArrays(GL_TRIANGLES, 0, 6);
-        glDrawElements(GL_TRIANGLES, elements.size(), GL_UNSIGNED_INT, 0);
+        //glDrawElements(GL_TRIANGLES, elements.size(), GL_UNSIGNED_INT, 0);
+        glDrawElements(GL_TRIANGLES, cylinderInd.size(), GL_UNSIGNED_INT, 0);
         glBindVertexArray(0);
 
         glfwSwapBuffers(window);
