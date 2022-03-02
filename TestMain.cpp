@@ -63,13 +63,16 @@ string vertCode = R"(
 
 layout(location=0) in vec3 position;
 layout(location=1) in vec4 color;
+layout(location=2) in vec3 normal;
 
 uniform mat4 modelMat;
 uniform mat4 viewMat;
 uniform mat4 projMat;
+uniform mat3 normMat;
 
 out vec4 interColor;
 out vec4 interPos;
+out vec3 interNorm;
 
 void main() {
     vec4 pos = vec4(position, 1.0);
@@ -77,6 +80,7 @@ void main() {
     interPos = vpos;
     gl_Position = projMat * vpos;
     interColor = color;
+    interNorm = normMat*normal;
 }
 )";
 
@@ -87,6 +91,7 @@ layout(location=0) out vec4 out_color;
 
 in vec4 interColor;
 in vec4 interPos;
+in vec3 interNorm;
 
 struct PointLight {
     vec4 pos;
@@ -95,11 +100,18 @@ struct PointLight {
 uniform PointLight light;
 
 void main() {
+    vec3 N = normalize(interNorm);
     //out_color = interColor; // vec4(0.0, 1.0, 1.0, 1.0);
     vec3 L = vec3(light.pos - interPos);
     float d = length(L);
     float at = 1.0 / (d*d + 1.0);
-    out_color = vec4(at, at, at, 1.0);
+    //out_color = vec4(at, at, at, 1.0);
+
+    L = normalize(L);
+
+    //N += 1.0;
+    //N /= 2.0;
+    out_color = vec4(N, 1.0);
 }
 )";
 
@@ -214,6 +226,30 @@ static void mouse_cursor_callback(GLFWwindow *window,
     lastMousePos = glm::vec2(xpos, ypos);
 }
 
+void computeOneNormal(vector<Vertex> &v, int i1, int i2, int i3) {
+    glm::vec3 p1 = v.at(i1).pos;
+    glm::vec3 p2 = v.at(i2).pos;
+    glm::vec3 p3 = v.at(i3).pos;
+
+    glm::vec3 v1 = p2 - p1;
+    glm::vec3 v2 = p3 - p1;
+    glm::vec3 n = glm::normalize(glm::cross(v1, v2));
+
+    v.at(i1).normal += n;
+    v.at(i2).normal += n;
+    v.at(i3).normal += n;
+}
+
+void computeAllNormals(vector<Vertex> &v, vector<GLuint> &ind) {
+    for(int i = 0; i < ind.size(); i += 3) {
+        computeOneNormal(v, ind.at(i), ind.at(i+1), ind.at(i+2));
+    }
+
+    for(int i = 0; i < v.size(); i++) {
+        v.at(i).normal = glm::normalize(v.at(i).normal);
+    }
+}
+
 void makeCylinder(vector<Vertex> &v, vector<GLuint> &ind,
                     float length, float radius, int faceCnt) {
 
@@ -256,6 +292,8 @@ void makeCylinder(vector<Vertex> &v, vector<GLuint> &ind,
             ind.push_back(i4);
             ind.push_back(i3);
         }
+
+        computeAllNormals(v, ind);
 }
 
 int main(int argc, char **argv) {
@@ -384,7 +422,11 @@ int main(int argc, char **argv) {
     GLint modelMatLoc = glGetUniformLocation(progID, "modelMat");
     GLint viewMatLoc = glGetUniformLocation(progID, "viewMat");
     GLint projMatLoc = glGetUniformLocation(progID, "projMat");
-    cout << modelMatLoc << " " << viewMatLoc << " " << projMatLoc << endl;
+    GLint normMatLoc = glGetUniformLocation(progID, "normMat");
+    cout << modelMatLoc << " ";
+    cout << viewMatLoc << " ";
+    cout << projMatLoc << " ";
+    cout << normMatLoc << endl;
 
     GLuint VBO = 0;
     glGenBuffers(1, &VBO);
@@ -463,6 +505,10 @@ int main(int argc, char **argv) {
         glm::vec4 curLightPos = viewMat * light.pos;
         glUniform4fv(lightPosLoc, 1, glm::value_ptr(curLightPos));
         glUniform4fv(lightColorLoc, 1, glm::value_ptr(light.color));
+
+        glm::mat4 modelView = viewMat * modModelMat;
+        glm::mat3 normMat = glm::transpose(glm::inverse(glm::mat3(modelView)));
+        glUniformMatrix3fv(normMatLoc, 1, false, glm::value_ptr(normMat));
 
         // Draw stuff
         glBindVertexArray(VAO);
