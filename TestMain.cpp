@@ -1,4 +1,6 @@
 #include <iostream>
+#include <fstream>
+#include <sstream>
 #include <cstring>
 #include <thread>
 #include <vector>
@@ -58,6 +60,8 @@ bool leftMouseDown = false;
 glm::vec2 lastMousePos(0,0);
 float angleX = 0.0;
 
+/*
+// OLD VERSION
 string vertCode = R"(
 #version 430 core
 
@@ -114,6 +118,29 @@ void main() {
     out_color = vec4(N, 1.0);
 }
 )";
+*/
+
+// Read from file and dump in string
+string readFileToString(string filename) {
+	// Open file
+	ifstream file(filename);
+	// Could we open file?
+	if(!file || file.fail()) {
+		cerr << "ERROR: Could not open file: " << filename << endl;
+		const char *m = ("ERROR: Could not open file: " + filename).c_str();
+		throw runtime_error(m);
+	}
+
+	// Create output stream to receive file data
+	ostringstream outS;
+	outS << file.rdbuf();
+	// Get actual string of file contents
+	string allS = outS.str();
+	// Close file
+	file.close();
+	// Return string
+	return allS;
+}
 
 void printRM(string name, glm::mat4 &M) {
     cout << name << ":" << endl;
@@ -402,6 +429,9 @@ int main(int argc, char **argv) {
     GLuint vertID = glCreateShader(GL_VERTEX_SHADER);
     GLuint fragID = glCreateShader(GL_FRAGMENT_SHADER);
 
+    string vertCode = readFileToString("Basic.vs");
+    string fragCode = readFileToString("Basic.fs");
+
     char const * vertPtr = vertCode.c_str();
     char const * fragPtr = fragCode.c_str();
     glShaderSource(vertID, 1, &vertPtr, NULL);
@@ -484,9 +514,9 @@ int main(int argc, char **argv) {
         glUseProgram(progID);
 
         //glUniformMatrix4fv(modelMatLoc, 1, false, glm::value_ptr(modelMat));
-        glm::mat4 Rx = glm::rotate(glm::radians(angleX), glm::vec3(1,0,0));
+        glm::mat4 R = glm::rotate(glm::radians(angleX), glm::vec3(0,1,0));
         //cout << "ANGLE X: " << angleX << endl;
-        glm::mat4 modModelMat = modelMat * Rx; //  Rx * modelMat;
+        glm::mat4 modModelMat = modelMat * R; //  
         glUniformMatrix4fv(modelMatLoc, 1, false, glm::value_ptr(modModelMat));
 
         viewMat = glm::lookAt(glm::vec3(eye), glm::vec3(center), glm::vec3(0,1,0));
