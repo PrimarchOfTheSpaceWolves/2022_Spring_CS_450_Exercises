@@ -12,6 +12,8 @@ struct PointLight {
 };
 uniform PointLight light;
 
+uniform sampler2D diffuseTexture;
+
 void main() {
     vec3 N = normalize(interNorm);
     //out_color = interColor; // vec4(0.0, 1.0, 1.0, 1.0);
@@ -43,5 +45,8 @@ void main() {
 
     vec3 finalColor = diffColor + specColor;
     out_color = vec4(finalColor, 1.0);
+
+    // Testing textures
+    out_color = texture(diffuseTexture, vec2(0,0));
 
 }

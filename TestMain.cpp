@@ -12,6 +12,8 @@
 #include "glm/gtx/string_cast.hpp"
 #include "glm/gtx/transform.hpp"
 #include "glm/gtc/type_ptr.hpp"
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
 using namespace std;
 
 vector<GLfloat> vertPos = {
@@ -426,6 +428,45 @@ int main(int argc, char **argv) {
         exit(1);
     }
 
+    string filename = "test.jpg";
+    int twidth, theight, tnumc;
+    stbi_set_flip_vertically_on_load(1);
+    unsigned char* tex_image = stbi_load(filename.c_str(), &twidth, &theight, &tnumc, 0);
+
+    if(!tex_image) {
+        cout << "COULD NOT LOAD TEXTURE: " << filename << endl;
+        glfwTerminate();
+        exit(1);
+    }
+
+    GLenum format;
+    if(tnumc == 3) {
+        format = GL_RGB;
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    }
+    else if(tnumc == 4) {
+        format = GL_RGBA;
+    }
+    else {
+        cout << "UNKNOWN NUMBER OF CHANNELS: " << tnumc << endl;
+        glfwTerminate();
+        exit(1);
+    }
+
+    unsigned int textureID = 0;
+    glGenTextures(1, &textureID);
+    glBindTexture(GL_TEXTURE_2D, textureID);
+    glTexImage2D(GL_TEXTURE_2D, 0, format, twidth, theight, 0, format, 
+                    GL_UNSIGNED_BYTE, tex_image);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    stbi_image_free(tex_image);
+
+
+
+    
+
+
     GLuint vertID = glCreateShader(GL_VERTEX_SHADER);
     GLuint fragID = glCreateShader(GL_FRAGMENT_SHADER);
 
@@ -503,6 +544,10 @@ int main(int argc, char **argv) {
     GLint lightColorLoc = glGetUniformLocation(progID, "light.color");
     cout << lightPosLoc << " " << lightColorLoc << endl;
 
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, textureID);
+    GLint uniformTextureID = glGetUniformLocation(progID, "diffuseTexture");
+
     // DRAWING / MAIN RENDER LOOP
     while(!glfwWindowShouldClose(window)) {
         
@@ -512,6 +557,8 @@ int main(int argc, char **argv) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         glUseProgram(progID);
+
+        glUniform1i(uniformTextureID, 0);
 
         //glUniformMatrix4fv(modelMatLoc, 1, false, glm::value_ptr(modelMat));
         glm::mat4 R = glm::rotate(glm::radians(angleX), glm::vec3(0,1,0));
@@ -551,6 +598,9 @@ int main(int argc, char **argv) {
         glfwPollEvents();
         this_thread::sleep_for(chrono::milliseconds(15));
     }
+
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glDeleteTextures(1, &textureID);
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
     glDeleteBuffers(1, &EBO);
