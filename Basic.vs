@@ -3,6 +3,7 @@
 layout(location=0) in vec3 position;
 layout(location=1) in vec4 color;
 layout(location=2) in vec3 normal;
+layout(location=3) in vec2 texcoords;
 
 uniform mat4 modelMat;
 uniform mat4 viewMat;
@@ -12,6 +13,7 @@ uniform mat3 normMat;
 out vec4 interColor;
 out vec4 interPos;
 out vec3 interNorm;
+out vec2 interUV;
 
 void main() {
     vec4 pos = vec4(position, 1.0);
@@ -20,4 +22,5 @@ void main() {
     gl_Position = projMat * vpos;
     interColor = color;
     interNorm = normMat*normal;
+    interUV = texcoords;
 }

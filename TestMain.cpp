@@ -36,6 +36,7 @@ struct Vertex {
     glm::vec3 pos = glm::vec3(0,0,0);
     glm::vec4 color = glm::vec4(1,1,1,1);
     glm::vec3 normal = glm::vec3(0,0,0);
+    glm::vec2 texcoords = glm::vec2(0,0);
 
     Vertex() {};
     Vertex(glm::vec3 p) { pos = p; };
@@ -297,9 +298,11 @@ void makeCylinder(vector<Vertex> &v, vector<GLuint> &ind,
             Vertex leftV, rightV;
             leftV.pos = left;
             leftV.color = glm::vec4(1,0,0,1);
+            leftV.texcoords = glm::vec2(0, ((float)i)/2.0);
 
             rightV.pos = right;
             rightV.color = glm::vec4(0,1,0,1);
+            rightV.texcoords = glm::vec2(2, ((float)i)/2.0);
 
             v.push_back(leftV);
             v.push_back(rightV);
@@ -460,6 +463,9 @@ int main(int argc, char **argv) {
                     GL_UNSIGNED_BYTE, tex_image);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
     stbi_image_free(tex_image);
 
 
@@ -518,6 +524,7 @@ int main(int argc, char **argv) {
     glEnableVertexAttribArray(0);
     glEnableVertexAttribArray(1);
     glEnableVertexAttribArray(2);
+    glEnableVertexAttribArray(3);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glVertexAttribPointer(0, 3, GL_FLOAT, false, sizeof(Vertex),
                             (void*)offsetof(Vertex, pos));
@@ -525,6 +532,8 @@ int main(int argc, char **argv) {
                             (void*)offsetof(Vertex, color));
     glVertexAttribPointer(2, 3, GL_FLOAT, false, sizeof(Vertex),
                             (void*)offsetof(Vertex, normal));
+    glVertexAttribPointer(3, 2, GL_FLOAT, false, sizeof(Vertex),
+                            (void*)offsetof(Vertex, texcoords));
 
     GLuint EBO = 0;
     glGenBuffers(1, &EBO);

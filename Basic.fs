@@ -5,6 +5,7 @@ layout(location=0) out vec4 out_color;
 in vec4 interColor;
 in vec4 interPos;
 in vec3 interNorm;
+in vec2 interUV;
 
 struct PointLight {
     vec4 pos;
@@ -31,6 +32,9 @@ void main() {
     float diffuse = max(0, dot(L, N));
     vec3 diffColor = diffuse * vec3(light.color * interColor);
 
+    vec3 texColor = vec3(texture(diffuseTexture, interUV));
+    diffColor = diffColor * texColor;
+
     //out_color = vec4(diffuse, diffuse, diffuse, 1.0);
     //out_color = vec4(diffColor, 1.0);
 
@@ -47,6 +51,7 @@ void main() {
     out_color = vec4(finalColor, 1.0);
 
     // Testing textures
-    out_color = texture(diffuseTexture, vec2(0,0));
+    
+
 
 }
