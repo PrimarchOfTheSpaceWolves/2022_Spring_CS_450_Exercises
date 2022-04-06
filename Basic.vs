@@ -16,9 +16,11 @@ out vec4 interPos;
 out vec3 interNorm;
 out vec2 interUV;
 out vec3 interTangent;
+out vec3 objPos;
 
 void main() {
     vec4 pos = vec4(position, 1.0);
+    objPos = position;
     vec4 vpos = viewMat * modelMat * pos;
     interPos = vpos;
     gl_Position = projMat * vpos;

@@ -7,6 +7,7 @@ in vec4 interPos;
 in vec3 interNorm;
 in vec2 interUV;
 in vec3 interTangent;
+in vec3 objPos;
 
 struct PointLight {
     vec4 pos;
@@ -16,6 +17,13 @@ uniform PointLight light;
 
 uniform sampler2D diffuseTexture;
 uniform sampler2D normalTexture;
+
+vec3 stripeSmooth(vec3 p, float w) {
+    float t = (1.0 + sin(3.14*p.x/w))/2.0;
+    vec3 c0 = vec3(1,1,1);
+    vec3 c1 = vec3(0.5,0.5,0.5);
+    return t*c1 + (1.0 - t)*c0;
+}
 
 void main() {
     vec3 N = normalize(interNorm);
@@ -61,6 +69,10 @@ void main() {
     //out_color = vec4(specColor, 1.0);
 
     vec3 finalColor = diffColor + specColor;
+
+    vec3 stripe = stripeSmooth(objPos, 0.1);
+    finalColor = finalColor*stripe;
+
     out_color = vec4(finalColor, 1.0);
 
     // Testing textures
