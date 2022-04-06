@@ -27,8 +27,17 @@ void main() {
 
     L = normalize(L);
 
-    T = normalize(interTangent);
-
+    
+    vec3 T = normalize(interTangent);
+    T = normalize(T - dot(T,N)*N);
+    vec3 B = normalize(cross(N,T));
+    vec3 texN = vec3(texture(normalTexture, interUV));
+    texN.x = texN.x*2.0f - 1.0f;
+    texN.y = texN.y*2.0f - 1.0f;
+    texN = normalize(texN);
+    mat3 toView = mat3(T,B,N);
+    N = normalize(toView*texN);
+    
     //N += 1.0;
     //N /= 2.0;
     //out_color = vec4(N, 1.0);
