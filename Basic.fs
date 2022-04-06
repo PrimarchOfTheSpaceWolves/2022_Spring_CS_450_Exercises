@@ -6,6 +6,7 @@ in vec4 interColor;
 in vec4 interPos;
 in vec3 interNorm;
 in vec2 interUV;
+in vec3 interTangent;
 
 struct PointLight {
     vec4 pos;
@@ -14,6 +15,7 @@ struct PointLight {
 uniform PointLight light;
 
 uniform sampler2D diffuseTexture;
+uniform sampler2D normalTexture;
 
 void main() {
     vec3 N = normalize(interNorm);
@@ -24,6 +26,8 @@ void main() {
     //out_color = vec4(at, at, at, 1.0);
 
     L = normalize(L);
+
+    T = normalize(interTangent);
 
     //N += 1.0;
     //N /= 2.0;

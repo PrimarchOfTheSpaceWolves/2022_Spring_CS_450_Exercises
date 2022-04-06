@@ -37,6 +37,7 @@ struct Vertex {
     glm::vec4 color = glm::vec4(1,1,1,1);
     glm::vec3 normal = glm::vec3(0,0,0);
     glm::vec2 texcoords = glm::vec2(0,0);
+    glm::vec3 tangent = glm::vec3(1,0,0);
 
     Vertex() {};
     Vertex(glm::vec3 p) { pos = p; };
@@ -328,6 +329,46 @@ void makeCylinder(vector<Vertex> &v, vector<GLuint> &ind,
         computeAllNormals(v, ind);
 }
 
+unsigned int loadAndCreateTexture(string filename) {
+    int twidth, theight, tnumc;
+    stbi_set_flip_vertically_on_load(1);
+    unsigned char* tex_image = stbi_load(filename.c_str(), &twidth, &theight, &tnumc, 0);
+
+    if(!tex_image) {
+        cout << "COULD NOT LOAD TEXTURE: " << filename << endl;
+        glfwTerminate();
+        exit(1);
+    }
+
+    GLenum format;
+    if(tnumc == 3) {
+        format = GL_RGB;
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    }
+    else if(tnumc == 4) {
+        format = GL_RGBA;
+    }
+    else {
+        cout << "UNKNOWN NUMBER OF CHANNELS: " << tnumc << endl;
+        glfwTerminate();
+        exit(1);
+    }
+
+    unsigned int textureID = 0;
+    glGenTextures(1, &textureID);
+    glBindTexture(GL_TEXTURE_2D, textureID);
+    glTexImage2D(GL_TEXTURE_2D, 0, format, twidth, theight, 0, format, 
+                    GL_UNSIGNED_BYTE, tex_image);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    stbi_image_free(tex_image);
+
+    return textureID;
+}
+
 int main(int argc, char **argv) {
     cout << "BEGIN GRAPHICS!!!!" << endl;
 
@@ -432,47 +473,9 @@ int main(int argc, char **argv) {
     }
 
     string filename = "test.jpg";
-    int twidth, theight, tnumc;
-    stbi_set_flip_vertically_on_load(1);
-    unsigned char* tex_image = stbi_load(filename.c_str(), &twidth, &theight, &tnumc, 0);
-
-    if(!tex_image) {
-        cout << "COULD NOT LOAD TEXTURE: " << filename << endl;
-        glfwTerminate();
-        exit(1);
-    }
-
-    GLenum format;
-    if(tnumc == 3) {
-        format = GL_RGB;
-        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-    }
-    else if(tnumc == 4) {
-        format = GL_RGBA;
-    }
-    else {
-        cout << "UNKNOWN NUMBER OF CHANNELS: " << tnumc << endl;
-        glfwTerminate();
-        exit(1);
-    }
-
-    unsigned int textureID = 0;
-    glGenTextures(1, &textureID);
-    glBindTexture(GL_TEXTURE_2D, textureID);
-    glTexImage2D(GL_TEXTURE_2D, 0, format, twidth, theight, 0, format, 
-                    GL_UNSIGNED_BYTE, tex_image);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
-    stbi_image_free(tex_image);
-
-
-
+    unsigned int textureID = loadAndCreateTexture(filename);
+    unsigned int normalID = loadAndCreateTexture("./NormalMap.png");
     
-
-
     GLuint vertID = glCreateShader(GL_VERTEX_SHADER);
     GLuint fragID = glCreateShader(GL_FRAGMENT_SHADER);
 
@@ -525,6 +528,7 @@ int main(int argc, char **argv) {
     glEnableVertexAttribArray(1);
     glEnableVertexAttribArray(2);
     glEnableVertexAttribArray(3);
+    glEnableVertexAttribArray(4);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glVertexAttribPointer(0, 3, GL_FLOAT, false, sizeof(Vertex),
                             (void*)offsetof(Vertex, pos));
@@ -534,6 +538,8 @@ int main(int argc, char **argv) {
                             (void*)offsetof(Vertex, normal));
     glVertexAttribPointer(3, 2, GL_FLOAT, false, sizeof(Vertex),
                             (void*)offsetof(Vertex, texcoords));
+    glVertexAttribPointer(4, 3, GL_FLOAT, false, sizeof(Vertex),
+                            (void*)offsetof(Vertex, tangent));
 
     GLuint EBO = 0;
     glGenBuffers(1, &EBO);
@@ -555,7 +561,12 @@ int main(int argc, char **argv) {
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, textureID);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, normalID);
+
     GLint uniformTextureID = glGetUniformLocation(progID, "diffuseTexture");
+    GLint uniformNormalTextureID = glGetUniformLocation(progID,
+                                                    "normalTexture");
 
     // DRAWING / MAIN RENDER LOOP
     while(!glfwWindowShouldClose(window)) {
@@ -568,6 +579,7 @@ int main(int argc, char **argv) {
         glUseProgram(progID);
 
         glUniform1i(uniformTextureID, 0);
+        glUniform1i(uniformNormalTextureID, 1);
 
         //glUniformMatrix4fv(modelMatLoc, 1, false, glm::value_ptr(modelMat));
         glm::mat4 R = glm::rotate(glm::radians(angleX), glm::vec3(0,1,0));
