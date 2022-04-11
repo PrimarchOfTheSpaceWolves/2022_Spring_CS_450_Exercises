@@ -64,6 +64,8 @@ bool leftMouseDown = false;
 glm::vec2 lastMousePos(0,0);
 float angleX = 0.0;
 
+float shininess = 10.0;
+
 /*
 // OLD VERSION
 string vertCode = R"(
@@ -210,6 +212,14 @@ static void key_callback(GLFWwindow *window,
             glm::mat4 R = glm::rotate(glm::radians(-5.0f),glm::vec3(0,1,0));
             modelMat = R*modelMat;
             transformString = "Ry(-5)*" + transformString;
+        }
+        else if(key == GLFW_KEY_9) {
+            shininess *= 2.0;
+        }
+        else if(key == GLFW_KEY_8) {
+            shininess /= 2.0;
+            if(shininess < 1.0)
+                shininess = 1.0;
         }
 
         printRM("Model:", modelMat);
@@ -559,6 +569,9 @@ int main(int argc, char **argv) {
     GLint lightColorLoc = glGetUniformLocation(progID, "light.color");
     cout << lightPosLoc << " " << lightColorLoc << endl;
 
+    GLint shinyLoc = glGetUniformLocation(progID, "shininess");
+    cout << "SHINY: " << shinyLoc << endl;
+
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, textureID);
     glActiveTexture(GL_TEXTURE1);
@@ -568,6 +581,7 @@ int main(int argc, char **argv) {
     GLint uniformNormalTextureID = glGetUniformLocation(progID,
                                                     "normalTexture");
 
+    
     // DRAWING / MAIN RENDER LOOP
     while(!glfwWindowShouldClose(window)) {
         
@@ -580,6 +594,8 @@ int main(int argc, char **argv) {
 
         glUniform1i(uniformTextureID, 0);
         glUniform1i(uniformNormalTextureID, 1);
+
+        glUniform1f(shinyLoc, shininess);
 
         //glUniformMatrix4fv(modelMatLoc, 1, false, glm::value_ptr(modelMat));
         glm::mat4 R = glm::rotate(glm::radians(angleX), glm::vec3(0,1,0));

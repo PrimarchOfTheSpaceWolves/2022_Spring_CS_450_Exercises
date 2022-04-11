@@ -25,6 +25,8 @@ vec3 stripeSmooth(vec3 p, float w) {
     return t*c1 + (1.0 - t)*c0;
 }
 
+uniform float shininess;
+
 void main() {
     vec3 N = normalize(interNorm);
     //out_color = interColor; // vec4(0.0, 1.0, 1.0, 1.0);
@@ -62,8 +64,8 @@ void main() {
     vec3 V = normalize(-vec3(interPos));
     vec3 H = normalize(L + V);
     float spec = max(0, dot(H, N));
-    float s = 10.0;
-    spec = pow(spec, s);
+    
+    spec = pow(spec, shininess);
     vec3 ks = vec3(1,1,1);
     vec3 specColor = spec * ks * vec3(light.color) * diffuse;
     //out_color = vec4(specColor, 1.0);
