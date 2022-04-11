@@ -66,6 +66,71 @@ float angleX = 0.0;
 
 float shininess = 10.0;
 
+struct FBO {
+    unsigned int ID;
+    int width;
+    int height;
+    vector<unsigned int> colorIDs;
+    unsigned int depthRBO;
+
+    void clear() {
+        ID = 0;
+        width = height = 0;
+        colorIDs.clear();
+        depthRBO = 0;
+    };
+};
+
+unsigned int createColorAttachment(int width, int height,
+                                    int internal, int format,
+                                    int type, int texFilter,
+                                    int color_attach) {
+    unsigned int texID;
+    glGenTextures(1, &texID);
+    glBindTexture(GL_TEXTURE_2D, texID);
+    glTexImage2D(GL_TEXTURE_2D, 0, internal, width, height,
+                    0, format, type, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, texFilter);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, texFilter);
+    glFramebufferTexture2D(GL_FRAMEBUFFER,
+                            GL_COLOR_ATTACHMENT0 + color_attach,
+                            GL_TEXTURE_2D, texID, 0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    return texID;
+}
+
+unsigned int createDepthRBO(int width, int height) {
+    unsigned int rbo;
+    glGenRenderbuffers(1, &rbo);
+    glBindRenderbuffer(GL_RENDERBUFFER, rbo);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8,
+                        width, height);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, 
+                            GL_DEPTH_STENCIL_ATTACHMENT,
+                            GL_RENDERBUFFER, rbo);
+    glBindRenderbuffer(GL_RENDERBUFFER, 0);
+    return rbo;
+}
+
+void createFBO(FBO &fboObj, int width, int height) {
+    fboObj.clear();
+    fboObj.width = width;
+    fboObj.height = height;
+    glGenFramebuffers(1, &(fboObj.ID));
+    glBindFramebuffer(GL_FRAMEBUFFER, fboObj.ID);
+    fboObj.colorIDs.push_back(createColorAttachment(width, height,
+                            GL_RGB, GL_RGB, GL_UNSIGNED_BYTE,
+                            GL_LINEAR, 0));
+    fboObj.depthRBO = createDepthRBO(width, height);
+    if(glCheckFramebufferStatus(GL_FRAMEBUFFER)
+        != GL_FRAMEBUFFER_COMPLETE) {
+            cerr << "ERROR: Framebuffer incomplete!" << endl;
+            fboObj.clear();
+    }
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
 /*
 // OLD VERSION
 string vertCode = R"(
@@ -379,6 +444,33 @@ unsigned int loadAndCreateTexture(string filename) {
     return textureID;
 }
 
+GLuint loadAndCreateShader(string vertFile, string fragFile) {
+    GLuint vertID = glCreateShader(GL_VERTEX_SHADER);
+    GLuint fragID = glCreateShader(GL_FRAGMENT_SHADER);
+
+    string vertCode = readFileToString(vertFile);
+    string fragCode = readFileToString(fragFile);
+
+    char const * vertPtr = vertCode.c_str();
+    char const * fragPtr = fragCode.c_str();
+    glShaderSource(vertID, 1, &vertPtr, NULL);
+    glShaderSource(fragID, 1, &fragPtr, NULL);
+
+    glCompileShader(vertID);
+    glCompileShader(fragID);
+
+    GLuint progID = glCreateProgram();
+    glAttachShader(progID, vertID);
+    glAttachShader(progID, fragID);
+
+    glLinkProgram(progID);
+
+    glDeleteShader(vertID);
+    glDeleteShader(fragID);
+
+    return progID;
+}
+
 int main(int argc, char **argv) {
     cout << "BEGIN GRAPHICS!!!!" << endl;
 
@@ -486,28 +578,8 @@ int main(int argc, char **argv) {
     unsigned int textureID = loadAndCreateTexture(filename);
     unsigned int normalID = loadAndCreateTexture("./NormalMap.png");
     
-    GLuint vertID = glCreateShader(GL_VERTEX_SHADER);
-    GLuint fragID = glCreateShader(GL_FRAGMENT_SHADER);
-
-    string vertCode = readFileToString("Basic.vs");
-    string fragCode = readFileToString("Basic.fs");
-
-    char const * vertPtr = vertCode.c_str();
-    char const * fragPtr = fragCode.c_str();
-    glShaderSource(vertID, 1, &vertPtr, NULL);
-    glShaderSource(fragID, 1, &fragPtr, NULL);
-
-    glCompileShader(vertID);
-    glCompileShader(fragID);
-
-    GLuint progID = glCreateProgram();
-    glAttachShader(progID, vertID);
-    glAttachShader(progID, fragID);
-
-    glLinkProgram(progID);
-
-    glDeleteShader(vertID);
-    glDeleteShader(fragID);
+    GLuint progID = loadAndCreateShader("Basic.vs", "Basic.fs");
+    GLuint quadProgID = loadAndCreateShader("Quad.vs", "Quad.fs");
 
     GLint modelMatLoc = glGetUniformLocation(progID, "modelMat");
     GLint viewMatLoc = glGetUniformLocation(progID, "viewMat");
@@ -572,6 +644,10 @@ int main(int argc, char **argv) {
     GLint shinyLoc = glGetUniformLocation(progID, "shininess");
     cout << "SHINY: " << shinyLoc << endl;
 
+    glfwGetFramebufferSize(window, &frameWidth, &frameHeight);
+    FBO fboObj;
+    createFBO(fboObj, frameWidth, frameHeight);
+
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, textureID);
     glActiveTexture(GL_TEXTURE1);
@@ -580,6 +656,46 @@ int main(int argc, char **argv) {
     GLint uniformTextureID = glGetUniformLocation(progID, "diffuseTexture");
     GLint uniformNormalTextureID = glGetUniformLocation(progID,
                                                     "normalTexture");
+
+
+    Vertex q1, q2, q3, q4, q5, q6;
+    q1.pos = glm::vec3(-1,-1,0);        // Lower-left
+    q1.texcoords = glm::vec2(0,0);
+
+    q2.pos = glm::vec3(1,-1,0);        // Lower-right
+    q2.texcoords = glm::vec2(1,0);
+
+    q3.pos = glm::vec3(-1,1,0);        // Upper-left
+    q3.texcoords = glm::vec2(0,1);
+
+    q4.pos = glm::vec3(1,-1,0);        // Lower-right
+    q4.texcoords = glm::vec2(1,0);
+
+    q5.pos = glm::vec3(1,1,0);        // Upper-right
+    q5.texcoords = glm::vec2(1,1);
+
+    q6.pos = glm::vec3(-1,1,0);
+    q6.texcoords = glm::vec2(0,1);      // Upper-left
+
+    vector<Vertex> quadPoints = {q1,q2,q3,q4,q5,q6};
+
+    GLuint quadVAO, quadVBO;
+    glGenVertexArrays(1, &quadVAO);
+    glBindVertexArray(quadVAO);
+    glEnableVertexAttribArray(0);
+    glEnableVertexAttribArray(1);
+    glGenBuffers(1, &quadVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+    glBufferData(GL_ARRAY_BUFFER, quadPoints.size()*sizeof(Vertex), 
+                    quadPoints.data(), GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 3, GL_FLOAT, false, sizeof(Vertex),
+                            (void*)offsetof(Vertex, pos));
+    glVertexAttribPointer(1, 2, GL_FLOAT, false, sizeof(Vertex),
+                            (void*)offsetof(Vertex, texcoords));
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);               
+
+
 
     
     // DRAWING / MAIN RENDER LOOP
@@ -636,6 +752,8 @@ int main(int argc, char **argv) {
         this_thread::sleep_for(chrono::milliseconds(15));
     }
 
+    glDeleteFramebuffers(1, &(fboObj.ID));
+
     glBindTexture(GL_TEXTURE_2D, 0);
     glDeleteTextures(1, &textureID);
 
@@ -650,6 +768,7 @@ int main(int argc, char **argv) {
 
     glUseProgram(0);
     glDeleteProgram(progID);
+    glDeleteProgram(quadProgID);
 
     glfwDestroyWindow(window);
     glfwTerminate();
