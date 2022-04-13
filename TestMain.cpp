@@ -81,6 +81,40 @@ struct FBO {
     };
 };
 
+struct GBuffer {
+    FBO fbo;
+    vector<GLint> locs;
+
+    void startGeometry() {
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo.ID);
+    };
+
+    void endGeometry() {
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    };
+
+    void startLighting() {
+        for(int i = 0; i < locs.size(); i++) {
+            glActiveTexture(GL_TEXTURE0 + i);
+            glBindTexture(GL_TEXTURE_2D, fbo.colorIDs.at(i));
+            glUniform1i(locs.at(i), i);
+        }
+    };
+
+    void endLighting() {
+        for(int i = 0; i < locs.size(); i++) {
+            glActiveTexture(GL_TEXTURE0 + i);
+            glBindTexture(GL_TEXTURE_2D, 0);
+        }
+    };
+
+    void cleanup() {
+        glDeleteFramebuffers(1, &(fbo.ID));
+        fbo.clear();
+        locs.clear();
+    };
+};
+
 unsigned int createColorAttachment(int width, int height,
                                     int internal, int format,
                                     int type, int texFilter,
@@ -126,6 +160,45 @@ void createFBO(FBO &fboObj, int width, int height) {
         != GL_FRAMEBUFFER_COMPLETE) {
             cerr << "ERROR: Framebuffer incomplete!" << endl;
             fboObj.clear();
+    }
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void createGBuffer(GBuffer &gb, int width, int height,
+            int progID, string *uniformNames) {
+    
+    gb.fbo.width = width;
+    gb.fbo.height = height;
+    glGenFramebuffers(1, &(gb.fbo.ID));
+    glBindFramebuffer(GL_FRAMEBUFFER, gb.fbo.ID);
+    gb.fbo.colorIDs.push_back(createColorAttachment(width, height,
+                            GL_RGBA16F, GL_RGBA, GL_FLOAT,
+                            GL_NEAREST, 0));
+
+    gb.fbo.colorIDs.push_back(createColorAttachment(width, height,
+                            GL_RGBA16F, GL_RGBA, GL_FLOAT,
+                            GL_NEAREST, 1));
+
+    gb.fbo.colorIDs.push_back(createColorAttachment(width, height,
+                            GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE,
+                            GL_NEAREST, 2));
+
+    gb.fbo.depthRBO = createDepthRBO(width, height);
+
+    unsigned int attachments[3] = { GL_COLOR_ATTACHMENT0,
+                                    GL_COLOR_ATTACHMENT1,
+                                    GL_COLOR_ATTACHMENT2};
+    glDrawBuffers(3, attachments);
+
+    if(glCheckFramebufferStatus(GL_FRAMEBUFFER)
+        != GL_FRAMEBUFFER_COMPLETE) {
+            cerr << "ERROR: Framebuffer incomplete!" << endl;
+            
+    }
+
+    for(int i = 0; i < 3; i++) {
+        gb.locs.push_back(glGetUniformLocation(progID, uniformNames[i].c_str()));
     }
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
