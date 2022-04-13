@@ -590,6 +590,8 @@ int main(int argc, char **argv) {
     cout << projMatLoc << " ";
     cout << normMatLoc << endl;
 
+    GLint screenTexLoc = glGetUniformLocation(quadProgID, "screenTexture");
+
     GLuint VBO = 0;
     glGenBuffers(1, &VBO);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
@@ -700,6 +702,13 @@ int main(int argc, char **argv) {
     
     // DRAWING / MAIN RENDER LOOP
     while(!glfwWindowShouldClose(window)) {
+        // FIRST PASS ////////////////////////////////////////////
+        glBindFramebuffer(GL_FRAMEBUFFER, fboObj.ID);
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, textureID);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, normalID);
         
         glfwGetFramebufferSize(window, &frameWidth, &frameHeight);
         glViewport(0,0,frameWidth,frameHeight);
@@ -710,12 +719,11 @@ int main(int argc, char **argv) {
 
         glUniform1i(uniformTextureID, 0);
         glUniform1i(uniformNormalTextureID, 1);
-
         glUniform1f(shinyLoc, shininess);
 
-        //glUniformMatrix4fv(modelMatLoc, 1, false, glm::value_ptr(modelMat));
+        
+
         glm::mat4 R = glm::rotate(glm::radians(angleX), glm::vec3(0,1,0));
-        //cout << "ANGLE X: " << angleX << endl;
         glm::mat4 modModelMat = modelMat * R; //  
         glUniformMatrix4fv(modelMatLoc, 1, false, glm::value_ptr(modModelMat));
 
@@ -742,11 +750,22 @@ int main(int argc, char **argv) {
 
         // Draw stuff
         glBindVertexArray(VAO);
-        //glDrawArrays(GL_TRIANGLES, 0, 6);
-        //glDrawElements(GL_TRIANGLES, elements.size(), GL_UNSIGNED_INT, 0);
         glDrawElements(GL_TRIANGLES, cylinderInd.size(), GL_UNSIGNED_INT, 0);
         glBindVertexArray(0);
 
+        
+        // SECOND PASS ////////////////////////////////////////////
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glUseProgram(quadProgID);
+        glUniform1i(screenTexLoc, 0);
+        glBindVertexArray(quadVAO);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, fboObj.colorIDs.at(0));
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        glBindVertexArray(0);
+        
+        
         glfwSwapBuffers(window);
         glfwPollEvents();
         this_thread::sleep_for(chrono::milliseconds(15));
