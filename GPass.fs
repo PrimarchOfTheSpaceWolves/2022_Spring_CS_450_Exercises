@@ -26,7 +26,7 @@ void main() {
     texN.y = texN.y*2.0f - 1.0f;
     texN = normalize(texN);
     mat3 toView = mat3(T,B,N);
-    N = normalize(toView*texN);
+    //N = normalize(toView*texN);
     
     vec3 texColor = vec3(texture(diffuseTexture, interUV));
     vec3 diffColor = vec3(interColor) * texColor;

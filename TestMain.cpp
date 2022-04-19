@@ -48,6 +48,8 @@ struct Vertex {
 struct PointLight {
     glm::vec4 pos = glm::vec4(0,0,0,1);
     glm::vec4 color = glm::vec4(1,1,1,1);
+    GLint posLoc = -1;
+    GLint colorLoc = -1;
 };
 
 vector<Vertex> vertices;
@@ -64,7 +66,7 @@ bool leftMouseDown = false;
 glm::vec2 lastMousePos(0,0);
 float angleX = 0.0;
 
-float shininess = 10.0;
+float shininess = 80.0; //10.0;
 
 struct FBO {
     unsigned int ID;
@@ -636,7 +638,7 @@ int main(int argc, char **argv) {
 
     int frameWidth, frameHeight;
 
-    glClearColor(1.0, 0.0, 1.0, 1.0);
+    glClearColor(0.0, 0.0, 0.0, 1.0);
 
     glewExperimental = true;
     GLenum err = glewInit();
@@ -651,9 +653,10 @@ int main(int argc, char **argv) {
     unsigned int textureID = loadAndCreateTexture(filename);
     unsigned int normalID = loadAndCreateTexture("./NormalMap.png");
     
-    GLuint progID = loadAndCreateShader("Basic.vs", "Basic.fs");
-    GLuint quadProgID = loadAndCreateShader("Quad.vs", "Quad.fs");
-
+    GLuint progID = loadAndCreateShader("GPass.vs", "GPass.fs");
+    GLuint quadProgID = loadAndCreateShader("LPass.vs", "LPass.fs");
+    GLuint emitProgID = loadAndCreateShader("PointEmissive.vs", "PointEmissive.fs");
+    
     GLint modelMatLoc = glGetUniformLocation(progID, "modelMat");
     GLint viewMatLoc = glGetUniformLocation(progID, "viewMat");
     GLint projMatLoc = glGetUniformLocation(progID, "projMat");
@@ -664,6 +667,13 @@ int main(int argc, char **argv) {
     cout << normMatLoc << endl;
 
     GLint screenTexLoc = glGetUniformLocation(quadProgID, "screenTexture");
+
+    GLint emitModelMatLoc = glGetUniformLocation(emitProgID, "modelMat");
+    GLint emitViewMatLoc = glGetUniformLocation(emitProgID, "viewMat");
+    GLint emitProjMatLoc = glGetUniformLocation(emitProgID, "projMat");
+    GLint emitLightColorLoc = glGetUniformLocation(emitProgID, "lightColor");
+    cout << emitModelMatLoc << endl;
+
 
     GLuint VBO = 0;
     glGenBuffers(1, &VBO);
@@ -710,11 +720,28 @@ int main(int argc, char **argv) {
 
     glEnable(GL_DEPTH_TEST);
 
-    PointLight light;
-    light.pos = glm::vec4(0, 0.5, 0.5, 1);
-    GLint lightPosLoc = glGetUniformLocation(progID, "light.pos");
-    GLint lightColorLoc = glGetUniformLocation(progID, "light.color");
-    cout << lightPosLoc << " " << lightColorLoc << endl;
+    //PointLight light;
+    //light.pos = glm::vec4(0, 0.5, 0.5, 1);
+    //GLint lightPosLoc = glGetUniformLocation(progID, "light.pos");
+    //GLint lightColorLoc = glGetUniformLocation(progID, "light.color");
+    //cout << lightPosLoc << " " << lightColorLoc << endl;
+
+    const int LIGHT_CNT = 10;
+    PointLight lights[LIGHT_CNT];
+    float angleInc = glm::radians(360.0 / LIGHT_CNT);
+    float radius = 0.8;
+    for(int i = 0; i < LIGHT_CNT; i++) {
+        lights[i].pos = glm::vec4(  radius * sin(i*angleInc),
+                                    0.1,
+                                    radius * cos(i*angleInc), 
+                                    1.0);
+
+        string pos_str = "lights[" + to_string(i) + "].pos";
+        string color_str = "lights[" + to_string(i) + "].color";
+        lights[i].posLoc = glGetUniformLocation(quadProgID, pos_str.c_str());
+        lights[i].colorLoc = glGetUniformLocation(quadProgID, color_str.c_str());
+    }
+
 
     GLint shinyLoc = glGetUniformLocation(progID, "shininess");
     cout << "SHINY: " << shinyLoc << endl;
@@ -722,6 +749,14 @@ int main(int argc, char **argv) {
     glfwGetFramebufferSize(window, &frameWidth, &frameHeight);
     FBO fboObj;
     createFBO(fboObj, frameWidth, frameHeight);
+
+    GBuffer gb;
+    createGBuffer(gb, frameWidth, frameHeight, quadProgID,
+                    new string[3]{  "gPosition", 
+                                    "gNormal", 
+                                    "gAlbedoSpec"}); 
+
+    
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, textureID);
@@ -776,7 +811,8 @@ int main(int argc, char **argv) {
     // DRAWING / MAIN RENDER LOOP
     while(!glfwWindowShouldClose(window)) {
         // FIRST PASS ////////////////////////////////////////////
-        glBindFramebuffer(GL_FRAMEBUFFER, fboObj.ID);
+        //glBindFramebuffer(GL_FRAMEBUFFER, fboObj.ID);
+        gb.startGeometry();
 
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, textureID);
@@ -813,9 +849,9 @@ int main(int argc, char **argv) {
         projMat = glm::perspective(fov, aspectRatio, near, far);
         glUniformMatrix4fv(projMatLoc, 1, false, glm::value_ptr(projMat));
 
-        glm::vec4 curLightPos = viewMat * light.pos;
-        glUniform4fv(lightPosLoc, 1, glm::value_ptr(curLightPos));
-        glUniform4fv(lightColorLoc, 1, glm::value_ptr(light.color));
+        //glm::vec4 curLightPos = viewMat * light.pos;
+        //glUniform4fv(lightPosLoc, 1, glm::value_ptr(curLightPos));
+        //glUniform4fv(lightColorLoc, 1, glm::value_ptr(light.color));
 
         glm::mat4 modelView = viewMat * modModelMat;
         glm::mat3 normMat = glm::transpose(glm::inverse(glm::mat3(modelView)));
@@ -826,23 +862,65 @@ int main(int argc, char **argv) {
         glDrawElements(GL_TRIANGLES, cylinderInd.size(), GL_UNSIGNED_INT, 0);
         glBindVertexArray(0);
 
-        
+        gb.endGeometry();
+
         // SECOND PASS ////////////////////////////////////////////
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        //glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glUseProgram(quadProgID);
-        glUniform1i(screenTexLoc, 0);
+        gb.startLighting();
+
+        for(int i = 0; i < LIGHT_CNT; i++) {
+            glm::vec4 lightPos = viewMat*lights[i].pos;
+            glUniform4fv(lights[i].posLoc, 1, glm::value_ptr(lightPos));
+            glUniform4fv(lights[i].colorLoc, 1, glm::value_ptr(lights[i].color));
+        }
+
+        //glUniform1i(screenTexLoc, 0);
         glBindVertexArray(quadVAO);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, fboObj.colorIDs.at(0));
+        //glActiveTexture(GL_TEXTURE0);
+        //glBindTexture(GL_TEXTURE_2D, fboObj.colorIDs.at(0));
         glDrawArrays(GL_TRIANGLES, 0, 6);
         glBindVertexArray(0);
         
+        gb.endLighting();
+
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, gb.fbo.ID);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+        glBlitFramebuffer(0, 0, frameWidth, frameHeight,
+                            0, 0, frameWidth, frameHeight,
+                            GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+        glUseProgram(emitProgID);
+        glUniformMatrix4fv(emitViewMatLoc, 1, false, glm::value_ptr(viewMat));
+        glUniformMatrix4fv(emitProjMatLoc, 1, false, glm::value_ptr(projMat));
+        glBindVertexArray(quadVAO);
+        for(int i = 0; i < LIGHT_CNT; i++) {
+            glm::vec3 W = glm::normalize(glm::vec3(eye - lights[i].pos));
+            glm::vec3 U = glm::normalize(cross(glm::vec3(0,1,0), W));
+            glm::vec3 V = glm::normalize(cross(W, U));
+            glm::mat4 VR = glm::mat4(   glm::vec4(U, 0), 
+                                        glm::vec4(V, 0), 
+                                        glm::vec4(W, 0), 
+                                        glm::vec4(0,0,0,1));
+
+            glm::mat4 emitModelMat 
+                = glm::translate(glm::vec3(lights[i].pos))*VR*glm::scale(glm::vec3(0.1));
+
+            glUniformMatrix4fv(emitModelMatLoc, 1, false, glm::value_ptr(emitModelMat));
+            glUniform4fv(emitLightColorLoc, 1, glm::value_ptr(lights[i].color));
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+
+        }
+
         
         glfwSwapBuffers(window);
         glfwPollEvents();
         this_thread::sleep_for(chrono::milliseconds(15));
     }
+
+    gb.cleanup();
 
     glDeleteFramebuffers(1, &(fboObj.ID));
 
@@ -861,6 +939,7 @@ int main(int argc, char **argv) {
     glUseProgram(0);
     glDeleteProgram(progID);
     glDeleteProgram(quadProgID);
+    glDeleteProgram(emitProgID);
 
     glfwDestroyWindow(window);
     glfwTerminate();
