@@ -1,6 +1,6 @@
 #version 430 core
 
-layout(location=0) vec3 out_color;
+layout(location=0) out vec4 out_color;
 
 uniform vec4 lightColor;
 
